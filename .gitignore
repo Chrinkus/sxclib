@@ -1,3 +1,14 @@
+# Project
+build
+lib
+
+# Vim
+*.swo
+*.swp
+
+# OSX
+.DS_Store
+
 # Prerequisites
 *.d
 
