@@ -1,5 +1,7 @@
 #include "dynamic_queue.h"
 
+#include <stdio.h>
+
 enum queue_sizes { dynamic_queue_base = 8 };
 
 struct dynamic_queue* dynamic_queue_init(struct dynamic_queue* q)
@@ -27,11 +29,14 @@ static struct dynamic_queue* dynamic_queue_resize(struct dynamic_queue* q)
 	if (!new_data)
 		return NULL;
 
-	for (size_t i = 0, j = q->head;		// i is linear, j wraps
-			i != 0 && (j != q->tail);
+	// i is linear, j may wrap. First iteration head == tail.
+	for (size_t i = 0, j = q->head;
+			i == 0 || (j != q->tail);	// ignore first iter
 			++i, j = (j + 1) % q->size)
 		new_data[i] = q->data[j];
 
+	free(q->data);
+	q->data = new_data;
 	q->head = 0;
 	q->tail = q->size;
 	q->capacity = new_cap;

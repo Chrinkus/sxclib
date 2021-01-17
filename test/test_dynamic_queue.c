@@ -3,7 +3,20 @@
 #include <setjmp.h>
 #include <cmocka.h>
 
+#include <stdio.h>
+
 #include "dynamic_queue.h"
+
+void print_int_queue(struct dynamic_queue* q)
+{
+	for (size_t i = 0; i < q->capacity; ++i) {
+		printf("[%zu] ", i);
+		if (q->data[i])
+			printf("%d\n", *(int*)q->data[i]);
+		else
+			printf("NULL\n");
+	}
+}
 
 static void test_dynamic_queue_init_free(void** state)
 {
@@ -250,6 +263,75 @@ static void test_dynamic_queue_dynamic(void** state)
 	dynamic_queue_free(&q);
 }
 
+static void test_dynamic_queue_dyn_wrap(void** state)
+{
+	(void) state;
+
+	struct dynamic_queue q;
+	dynamic_queue_init(&q);
+
+	// move head to middle then empty queue
+	int x = 0;
+	for (int i = 0; i < 4; ++i)
+		dynamic_queue_push(&q, (void*)&x);
+
+	for (int i = 0; i < 4; ++i)
+		dynamic_queue_pop(&q);
+
+	assert_int_equal(q.size, 0);
+	assert_int_equal(q.head, 4);
+	assert_int_equal(q.tail, 4);
+	assert_int_equal(q.capacity, 8);
+
+	// fill queue with a wrap
+	int arr[] = { 12, 24, 36, 48, 60, 72, 84, 96, 108, 120 };
+	for (int i = 0; i < 8; ++i)
+		dynamic_queue_push(&q, (void*)&arr[i]);
+
+	assert_int_equal(q.size, 8);
+	assert_int_equal(q.head, 4);
+	assert_int_equal(q.tail, 4);
+	assert_int_equal(q.capacity, 8);
+
+	//printf("Full & wrapped:\n");
+	//print_int_queue(&q);
+
+	// push one more, trigger resize
+	dynamic_queue_push(&q, &arr[8]);
+	assert_int_equal(q.size, 9);
+	assert_int_equal(q.head, 0);
+	assert_int_equal(q.tail, 9);
+	assert_int_equal(q.capacity, 16);
+
+	//printf("Resized:\n");
+	//print_int_queue(&q);
+
+	dynamic_queue_push(&q, &arr[9]);
+	assert_int_equal(q.size, 10);
+	assert_int_equal(q.head, 0);
+	assert_int_equal(q.tail, 10);
+	assert_int_equal(q.capacity, 16);
+
+	//printf("Resized +1:\n");
+	//print_int_queue(&q);
+
+	/* Need 'i' for arr[] access. Expected loop is:
+	 * for (int* p; (p = (int*)dynamic_queue_pop(&q)) != NULL; )
+	 */
+	int* p = NULL;
+	for (size_t i = 0; (p = (int*)dynamic_queue_pop(&q)) != NULL; ++i) {
+		assert_int_equal(*p, arr[i]);
+		//printf("Iter [%zu]: *p = %d, arr[i] = %d\n", i, *p, arr[i]);
+	}
+	assert_null(p);
+	assert_int_equal(q.size, 0);
+	assert_int_equal(q.head, 10);
+	assert_int_equal(q.tail, 10);
+	assert_int_equal(q.capacity, 16);
+
+	dynamic_queue_free(&q);
+}
+
 int main()
 {
 	const struct CMUnitTest tests[] = {
@@ -258,6 +340,7 @@ int main()
 		cmocka_unit_test(test_dynamic_queue_push_pop),
 		cmocka_unit_test(test_dynamic_queue_wrap),
 		cmocka_unit_test(test_dynamic_queue_dynamic),
+		cmocka_unit_test(test_dynamic_queue_dyn_wrap),
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
